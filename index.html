@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>P2P Call Demo</title>
+</head>
+<body>
+<h1>P2P Call через WebSocket + WebRTC</h1>
+
+<label>Ваш ключ: <input id="myKey" value="user1"></label>
+<button id="registerBtn">Зарегистрироваться</button>
+<br><br>
+<label>Ключ собеседника: <input id="peerKey" value="user2"></label>
+<button id="callBtn">Позвонить</button>
+<button id="hangupBtn">Завершить</button>
+
+<h3>Лог:</h3>
+<pre id="log"></pre>
+
+<script>
+    let ws, pc, localStream;
+    const logEl = document.getElementById("log");
+
+    function log(msg) {
+        console.log(msg);
+        logEl.textContent += msg + "\n";
+    }
+
+    document.getElementById("registerBtn").onclick = async () => {
+        const myKey = document.getElementById("myKey").value;
+        ws = new WebSocket("https://zvonilka-alearvick.amvera.io/ws");
+
+        ws.onopen = () => {
+            log("WebSocket открыт");
+            ws.send(JSON.stringify({ action: "register", key: myKey }));
+        };
+
+        ws.onmessage = async (event) => {
+            const msg = JSON.parse(event.data);
+            log("Получено: " + JSON.stringify(msg));
+
+            switch(msg.action) {
+                case "incoming_call":
+                    await startLocalStream();
+                    pc = createPeerConnection(msg.from);
+
+                    await pc.setRemoteDescription({ type: "offer", sdp: msg.signal.sdp });
+                    const answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+
+                    ws.send(JSON.stringify({ action: "answer", to: msg.from, signal: { sdp: answer.sdp }}));
+                    break;
+
+                case "call_answer":
+                    await pc.setRemoteDescription({ type: "answer", sdp: msg.signal.sdp });
+                    break;
+
+                case "ice":
+                    if (pc) {
+                        pc.addIceCandidate(new RTCIceCandidate(msg.candidate))
+                            .catch(e => log("Ошибка ICE: " + e));
+                    }
+                    break;
+
+                case "call_ended":
+                    log("Звонок завершен");
+                    if (pc) pc.close();
+                    break;
+            }
+        };
+    };
+
+    document.getElementById("callBtn").onclick = async () => {
+        const peerKey = document.getElementById("peerKey").value;
+        await startLocalStream();
+        pc = createPeerConnection(peerKey);
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        ws.send(JSON.stringify({ action: "call", to: peerKey, signal: { sdp: offer.sdp }}));
+    };
+
+    document.getElementById("hangupBtn").onclick = () => {
+        const peerKey = document.getElementById("peerKey").value;
+        ws.send(JSON.stringify({ action: "bye", to: peerKey }));
+        if (pc) pc.close();
+        log("Звонок завершен");
+    };
+
+    async function startLocalStream() {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        const audio = document.createElement("audio");
+        audio.srcObject = localStream;
+        audio.autoplay = true;
+        audio.muted = true; // слышишь себя без эха
+        document.body.appendChild(audio);
+    }
+
+    function createPeerConnection(peerKey) {
+        const pc = new RTCPeerConnection();
+
+        // Локальные треки
+        localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+        // Воспроизведение удаленного аудио
+        pc.ontrack = (event) => {
+            const audio = document.createElement("audio");
+            audio.srcObject = event.streams[0];
+            audio.autoplay = true;
+            document.body.appendChild(audio);
+        };
+
+        // ICE candidates
+        pc.onicecandidate = (event) => {
+            if (event.candidate) {
+                ws.send(JSON.stringify({ action: "ice", to: peerKey, candidate: event.candidate }));
+            }
+        };
+
+        return pc;
+    }
+</script>
+</body>
+</html>
