@@ -6,8 +6,11 @@ export const VideoCallApp: React.FC = () => {
   const [myKey, setMyKey] = useState("");
   const [peerKey, setPeerKey] = useState("");
   const [logMessages, setLogMessages] = useState<string[]>([]);
-  const [micEnabled, setMicEnabled] = useState(false);
-  const [videoEnabled, setVideoEnabled] = useState(false);
+
+  const [micEnabled, setMicEnabled] = useState(true);
+  const [videoEnabled, setVideoEnabled] = useState(true);
+  const [hasMic, setHasMic] = useState(false);
+  const [hasCamera, setHasCamera] = useState(false);
 
   const socketRef = useRef<WebSocket | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -21,6 +24,11 @@ export const VideoCallApp: React.FC = () => {
   };
 
   useEffect(() => {
+    navigator.mediaDevices.enumerateDevices().then((devices) => {
+      setHasMic(devices.some((d) => d.kind === "audioinput"));
+      setHasCamera(devices.some((d) => d.kind === "videoinput"));
+    });
+
     return () => {
       pcRef.current?.close();
       socketRef.current?.close();
@@ -28,22 +36,30 @@ export const VideoCallApp: React.FC = () => {
   }, []);
 
   const startLocalStream = async () => {
+    if (!micEnabled && !videoEnabled) {
+      log("Ни микрофон, ни камера не выбраны — поток не создается");
+      return;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: micEnabled,
-        audio: videoEnabled,
+        audio: micEnabled && hasMic,
+        video: videoEnabled && hasCamera,
       });
 
       localStreamRef.current = stream;
-
       if (localVideoRef.current) {
         localVideoRef.current!.srcObject = stream;
         localVideoRef.current!.autoplay = true;
         localVideoRef.current!.muted = true;
       }
 
-      setMicEnabled(withAudio);
-      setVideoEnabled(withVideo);
+      // Включаем/выключаем треки по галочкам
+      stream.getAudioTracks().forEach((track) => (track.enabled = micEnabled));
+      stream
+        .getVideoTracks()
+        .forEach((track) => (track.enabled = videoEnabled));
+
       log("Локальный поток запущен");
     } catch (err) {
       log("Ошибка при получении медиапотока: " + err);
@@ -216,18 +232,22 @@ export const VideoCallApp: React.FC = () => {
       </div>
 
       <div className="flex gap-4 mb-6">
-        <button
-          onClick={toggleMic}
-          className="px-4 py-2 bg-gray-700 rounded-md hover:bg-gray-600 transition"
-        >
-          {micEnabled ? "Mute Mic" : "Unmute Mic"}
-        </button>
-        <button
-          onClick={toggleVideo}
-          className="px-4 py-2 bg-gray-700 rounded-md hover:bg-gray-600 transition"
-        >
-          {videoEnabled ? "Stop Video" : "Start Video"}
-        </button>
+        {hasMic && (
+          <button
+            onClick={toggleMic}
+            className="px-4 py-2 bg-gray-700 rounded-md hover:bg-gray-600 transition"
+          >
+            {micEnabled ? "Mute Mic" : "Unmute Mic"}
+          </button>
+        )}
+        {hasCamera && (
+          <button
+            onClick={toggleVideo}
+            className="px-4 py-2 bg-gray-700 rounded-md hover:bg-gray-600 transition"
+          >
+            {videoEnabled ? "Stop Video" : "Start Video"}
+          </button>
+        )}
       </div>
 
       <div className="relative w-full flex justify-center items-start gap-4">
