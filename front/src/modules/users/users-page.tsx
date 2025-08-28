@@ -93,7 +93,9 @@ export const VideoCallApp: React.FC = () => {
   };
 
   const register = () => {
-    socketRef.current = new WebSocket("ws://localhost:80/ws");
+    socketRef.current = new WebSocket(
+      "https://zvonilka-alearvick.amvera.io/ws",
+    );
 
     socketRef.current!.onopen = () => {
       log("WebSocket connected");
