@@ -30,7 +30,7 @@ export const VideoCallApp: React.FC = () => {
   const startLocalStream = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: micEnabled, // галочка Микрофон
+        audio: true, // галочка Микрофон
         video: false, // галочка Камера
       });
 
