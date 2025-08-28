@@ -1,5 +1,5 @@
-import { VideoCallApp } from "@/modules/users/users-page";
+import { P2PCallDemo } from "@/modules/users/users-page";
 
 export default function Users() {
-  return <VideoCallApp />;
+  return <P2PCallDemo />;
 }
