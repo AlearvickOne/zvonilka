@@ -36,33 +36,31 @@ export const VideoCallApp: React.FC = () => {
   }, []);
 
   const startLocalStream = async () => {
-    if (!micEnabled && !videoEnabled) {
-      log("Ни микрофон, ни камера не выбраны — поток не создается");
+    if (!micEnabled) {
+      log("Микрофон не выбран — поток не создается");
       return;
     }
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: micEnabled && hasMic,
-        video: videoEnabled && hasCamera,
+        audio: micEnabled,
       });
 
       localStreamRef.current = stream;
-      if (localVideoRef.current) {
-        localVideoRef.current!.srcObject = stream;
-        localVideoRef.current!.autoplay = true;
-        localVideoRef.current!.muted = true;
-      }
 
-      // Включаем/выключаем треки по галочкам
+      // создаём скрытый аудио элемент для прослушивания себя без эха
+      const audio = document.createElement("audio");
+      audio.srcObject = stream;
+      audio.autoplay = true;
+      audio.muted = true;
+      document.body.appendChild(audio);
+
+      // включаем/выключаем треки микрофона по галочке
       stream.getAudioTracks().forEach((track) => (track.enabled = micEnabled));
-      stream
-        .getVideoTracks()
-        .forEach((track) => (track.enabled = videoEnabled));
 
-      log("Локальный поток запущен");
+      log("Локальный поток микрофона запущен");
     } catch (err) {
-      log("Ошибка при получении медиапотока: " + err);
+      log("Ошибка при получении аудио: " + err);
     }
   };
 
