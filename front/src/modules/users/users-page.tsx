@@ -22,7 +22,7 @@ export const VideoCallApp: React.FC = () => {
     console.log(msg);
     setLogMessages((prev) => [...prev, msg]);
   };
-/*
+  /**/
   useEffect(() => {
     navigator.mediaDevices.enumerateDevices().then((devices) => {
       setHasMic(devices.some((d) => d.kind === "audioinput"));
