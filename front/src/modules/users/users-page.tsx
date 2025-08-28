@@ -6,8 +6,8 @@ export const VideoCallApp: React.FC = () => {
   const [myKey, setMyKey] = useState("");
   const [peerKey, setPeerKey] = useState("");
   const [logMessages, setLogMessages] = useState<string[]>([]);
-  const [micEnabled, setMicEnabled] = useState(true);
-  const [videoEnabled, setVideoEnabled] = useState(true);
+  const [micEnabled, setMicEnabled] = useState(false);
+  const [videoEnabled, setVideoEnabled] = useState(false);
 
   const socketRef = useRef<WebSocket | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -30,8 +30,8 @@ export const VideoCallApp: React.FC = () => {
   const startLocalStream = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true, // галочка Микрофон
-        video: false, // галочка Камера
+        video: micEnabled,
+        audio: videoEnabled,
       });
 
       localStreamRef.current = stream;
@@ -42,6 +42,8 @@ export const VideoCallApp: React.FC = () => {
         localVideoRef.current!.muted = true;
       }
 
+      setMicEnabled(withAudio);
+      setVideoEnabled(withVideo);
       log("Локальный поток запущен");
     } catch (err) {
       log("Ошибка при получении медиапотока: " + err);
@@ -93,9 +95,7 @@ export const VideoCallApp: React.FC = () => {
   };
 
   const register = () => {
-    socketRef.current = new WebSocket(
-      "https://zvonilka-alearvick.amvera.io/ws",
-    );
+    socketRef.current = new WebSocket("wss://zvonilka-alearvick.amvera.io/ws");
 
     socketRef.current!.onopen = () => {
       log("WebSocket connected");
